@@ -1,0 +1,261 @@
+import React, { useMemo } from "react";
+import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
+import { AgGridReact } from "ag-grid-react";
+import "ag-grid-community/styles/ag-grid.css";
+import "ag-grid-community/styles/ag-theme-alpine.css";
+
+ModuleRegistry.registerModules([
+  AllCommunityModule, // or AllEnterpriseModule
+]);
+// Sample trade data
+const tradeData = [
+  { country: "USA", assetClass: "Equity", assetType: "Stock", sector: "Tech", region: "North America", price: 500, volume: 100 },
+  { country: "USA", assetClass: "Equity", assetType: "Stock", sector: "Tech", region: "South America", price: 600, volume: 200 },
+  { country: "UK", assetClass: "Equity", assetType: "Stock", sector: "Tech", region: "London", price: 300, volume: 350 },
+  { country: "UK", assetClass: "Equity", assetType: "Stock", sector: "Tech", region: "London", price: 700, volume: 250 },
+  { country: "USA", assetClass: "Equity", assetType: "ETF", sector: "Finance", region: "North America", price: 200, volume: 50 },
+  { country: "UK", assetClass: "Fixed Income", assetType: "Bond", sector: "Finance", region: "Europe", price: 300, volume: 80 },
+];
+
+// Define multiple grouping hierarchies (each row will belong to both)
+const groupConfigs = [
+  { name: "Group 1", groupBy: ["country", "assetClass", "assetType"] },
+  { name: "Group 2", groupBy: ["sector", "country", "region"] },
+];
+
+const AsymmetricGroupingGrid = () => {
+  // Process data with both group types
+  const rowData = useMemo(() => {
+    const groupedData: any = [];
+    const groupMaps = groupConfigs.map(() => new Map());
+
+    tradeData.forEach((trade: any) => {
+      groupConfigs.forEach((config, index) => {
+        const groupKey = config.groupBy.map((key) => trade[key]).join(" | ");
+        if (!groupMaps[index].has(groupKey)) {
+          groupMaps[index].set(groupKey, {
+            groupKey,
+            groupType: config.name,
+            _isSubtotal: true,
+            price: 0,
+            volume: 0,
+            sector: "Subtotal",
+          });
+        }
+        groupMaps[index].get(groupKey).price += trade.price;
+        groupMaps[index].get(groupKey).volume += trade.volume;
+      });
+    });
+
+    // Merge all grouped data into the same grid
+    groupMaps.forEach((groupMap, index) => {
+      groupedData.push(...Array.from(groupMap.values()));
+      tradeData.forEach((trade: any) => {
+        const groupKey = groupConfigs[index].groupBy.map((key: any) => trade[key]).join(" | ");
+        groupedData.push({ groupKey, groupType: groupConfigs[index].name, ...trade });
+      });
+    });
+
+    return groupedData;
+  }, []);
+
+  // Column definitions (all columns always visible)
+  const columnDefs = useMemo(
+    () => [
+      { field: "groupType", headerName: "Group Type", pinned: "left", rowGroup: true },
+      { field: "groupKey", headerName: "Group", pinned: "left", rowGroup: true },
+      { field: "price", headerName: "Price", aggFunc: "sum" },
+      { field: "volume", headerName: "Volume", aggFunc: "sum" },
+      { field: "sector", headerName: "Sector" },
+      { field: "region", headerName: "Region" },
+    ],
+    []
+  );
+
+  return (
+    <div>
+      <h3>Asymmetric Grouping Grid (Single Instance, Multiple Groups)</h3>
+      <div className="ag-theme-alpine" style={{ height: 500, width: "80vw" }}>
+        <AgGridReact
+          rowData={rowData}
+          columnDefs={columnDefs as any}
+          groupDisplayType="groupRows"
+          animateRows={true}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default AsymmetricGroupingGrid;
+
+
+
+Example 2 
+
+
+
+import React, { useState, useMemo, useRef, useCallback } from "react";
+import { AgGridReact } from "ag-grid-react";
+import "ag-grid-community/styles/ag-grid.css";
+import "ag-grid-community/styles/ag-theme-alpine.css";
+
+ModuleRegistry.registerModules([
+  AllCommunityModule, // or AllEnterpriseModule
+]);
+
+
+// Sample trade data
+const tradeData = [
+  {
+    country: "USA",
+    assetClass: "Equity",
+    assetType: "Stock",
+    sector: "Tech",
+    region: "North America",
+    price: 500,
+    volume: 100,
+  },
+  {
+    country: "USA",
+    assetClass: "Equity",
+    assetType: "ETF",
+    sector: "Finance",
+    region: "North America",
+    price: 200,
+    volume: 50,
+  },
+  {
+    country: "UK",
+    assetClass: "Fixed Income",
+    assetType: "Bond",
+    sector: "Finance",
+    region: "Europe",
+    price: 300,
+    volume: 80,
+  },
+];
+
+// Define two grouping configurations
+const groupingOptions = [
+  {
+    label: "Country → Asset Class → Asset Type",
+    groupKeys: ["country", "assetClass", "assetType"],
+    groupDisplay: [
+      { headerName: "Country", showRowGroup: "country", minWidth: 120 },
+      { headerName: "Asset Class", showRowGroup: "assetClass", minWidth: 120 },
+      { headerName: "Asset Type", showRowGroup: "assetType", minWidth: 120 },
+    ],
+  },
+  {
+    label: "Sector → Country",
+    groupKeys: ["sector", "country"],
+    groupDisplay: [
+      { headerName: "Sector", showRowGroup: "sector", minWidth: 120 },
+      { headerName: "Country", showRowGroup: "country", minWidth: 120 },
+    ],
+  },
+];
+
+const AsymmetricGroupingGrid = () => {
+  const gridRef = useRef<any>(null);
+  const [groupingIndex, setGroupingIndex] = useState(0);
+
+  // Get the current grouping configuration based on the dropdown selection.
+  const currentGrouping = groupingOptions[groupingIndex];
+
+  // Build column definitions:
+  // 1. The grouping columns are set with rowGroup: true (and hidden from the main grid)
+  // 2. Then we use separate columns (using showRowGroup) to display the grouping values.
+  // 3. Other columns (Region, Price, Volume) are always visible.
+  const columnDefs = useMemo(() => {
+    const groupingCols = currentGrouping.groupKeys.map((field) => ({
+      field,
+      rowGroup: true,
+      hide: true,
+    }));
+    const groupDisplayCols = currentGrouping.groupDisplay;
+    return [
+      ...groupingCols,
+      ...groupDisplayCols,
+      { field: "region", headerName: "Region", minWidth: 120 },
+      { field: "price", headerName: "Price", aggFunc: "sum", minWidth: 100 },
+      { field: "volume", headerName: "Volume", aggFunc: "sum", minWidth: 100 },
+    ];
+  }, [currentGrouping]);
+
+  // Default column definitions
+  const defaultColDef = useMemo(() => ({
+    flex: 1,
+    sortable: true,
+    filter: true,
+  }), []);
+
+  // Excel export handler
+  const onBtnExport = useCallback(() => {
+    gridRef.current.api.exportDataAsExcel();
+  }, []);
+
+  // Handlers for expanding/collapsing groups
+  const onExpandAll = useCallback(() => {
+    gridRef.current.api.expandAll();
+  }, []);
+
+  const onCollapseAll = useCallback(() => {
+    gridRef.current.api.collapseAll();
+  }, []);
+
+  // Custom row style for group (subtotal) rows.
+  const getRowStyle = useCallback((params) => {
+    if (params.node.group) {
+      return { fontWeight: "bold", backgroundColor: "#e3f2fd" };
+    }
+    return null;
+  }, []);
+
+  return (
+    <div style={{ margin: "20px" }}>
+      <h3>Asymmetric Grouping with Expandable/Collapsible Groups</h3>
+      <div style={{ marginBottom: "10px" }}>
+        <label style={{ marginRight: "10px" }}>
+          Grouping Option:
+          <select
+            style={{ marginLeft: "5px" }}
+            value={groupingIndex}
+            onChange={(e) => setGroupingIndex(Number(e.target.value))}
+          >
+            {groupingOptions.map((opt, index) => (
+              <option key={index} value={index}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button onClick={onBtnExport} style={{ marginRight: "5px" }}>
+          Export to Excel
+        </button>
+        <button onClick={onExpandAll} style={{ marginRight: "5px" }}>
+          Expand All
+        </button>
+        <button onClick={onCollapseAll}>Collapse All</button>
+      </div>
+      <div className="ag-theme-alpine" style={{ height: 500, width: "100%" }}>
+        <AgGridReact
+          ref={gridRef}
+          rowData={tradeData}
+          columnDefs={columnDefs}
+          defaultColDef={defaultColDef}
+          groupDisplayType="multipleColumns"
+          animateRows={true}
+          getRowStyle={getRowStyle}
+          autoGroupColumnDef={{
+            headerName: "Group",
+            cellRendererParams: { suppressCount: false },
+          }}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default AsymmetricGroupingGrid;
