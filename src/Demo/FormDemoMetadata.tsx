@@ -1,6 +1,6 @@
-import { FormMetadata } from "./DynamicForm";
+import { FormMetadata } from "../FormManagement/FormManagement";
 
-export const complexMetadata: FormMetadata = {
+export const formDemoMetadata: FormMetadata = {
   fields: [
     {
       id: 'firstName',

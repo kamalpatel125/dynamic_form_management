@@ -1,4 +1,4 @@
-import "./DynamicForm.css"
+import "./FormManagement.css"
 
 import React, { useState, useEffect } from 'react';
 
@@ -95,14 +95,14 @@ const FormControl: React.FC<FormControlProps> = ({ field, value, onChange, optio
   );
 };
 
-export interface DynamicFormProps {
+export interface FormManagementProps {
   metadata: FormMetadata;
   initialValues?: Record<string, any>;
   dynamicOptionsFromParent?: Record<string, Option[]>;
   onSubmit: (data: any) => void;
 }
 
-export const DynamicForm: React.FC<DynamicFormProps> = ({ metadata, initialValues = {}, dynamicOptionsFromParent, onSubmit }) => {
+export const FormManagement: React.FC<FormManagementProps> = ({ metadata, initialValues = {}, dynamicOptionsFromParent, onSubmit }) => {
   const [formData, setFormData] = useState<Record<string, any>>(initialValues || {});
   const [dynamicOptions, setDynamicOptions] = useState<Record<string, Option[]>>(dynamicOptionsFromParent || {});
 
